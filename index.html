@@ -47,9 +47,34 @@
             sparklesContainer.appendChild(sparkle);
         }
 
+        // ─── Aspect-ratio-preserving canvas resize ───
+        const canvas = document.getElementById('game-canvas');
+        const GAME_W = 1920, GAME_H = 1080;
+        const GAME_RATIO = GAME_W / GAME_H;
+
+        function resizeCanvas() {
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            let cw, ch;
+            if (vw / vh > GAME_RATIO) {
+                // Viewport wider than 16:9 → fit to height, letterbox sides
+                ch = vh;
+                cw = vh * GAME_RATIO;
+            } else {
+                // Viewport taller than 16:9 (portrait phone) → fit to width, letterbox top/bottom
+                cw = vw;
+                ch = vw / GAME_RATIO;
+            }
+            canvas.style.width = cw + 'px';
+            canvas.style.height = ch + 'px';
+        }
+
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        screen.orientation?.addEventListener('change', resizeCanvas);
+
         // ─── Start on tap ───
         const startScreen = document.getElementById('start-screen');
-        const canvas = document.getElementById('game-canvas');
         let gameStarted = false;
 
         startScreen.addEventListener('click', startGame);
@@ -65,6 +90,9 @@
             try {
                 await document.documentElement.requestFullscreen();
             } catch (e) { /* fullscreen not supported — fine */ }
+
+            // Re-calc after fullscreen change
+            resizeCanvas();
 
             startScreen.classList.add('hidden');
             const game = new Game(canvas);
