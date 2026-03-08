@@ -77,6 +77,39 @@ body {
     opacity: 0;
 }
 
+/* ─── Rotate Device Overlay ─── */
+#rotate-overlay {
+    display: none; /* shown by JS when portrait */
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, #e8b4f8 0%, #f8c8dc 30%, #fde4cf 60%, #c8e6ff 100%);
+}
+
+.rotate-icon {
+    font-size: clamp(60px, 15vw, 100px);
+    animation: rotateHint 2s ease-in-out infinite;
+}
+
+.rotate-title {
+    font-size: clamp(22px, 5vw, 40px);
+    color: #7c3aed;
+    margin-top: 20px;
+    text-align: center;
+    padding: 0 20px;
+    font-weight: bold;
+}
+
+.rotate-hint {
+    font-size: clamp(14px, 3vw, 24px);
+    color: #a855f7;
+    margin-top: 10px;
+    text-align: center;
+}
+
 /* ─── Game Canvas ─── */
 #game-canvas {
     display: block;
@@ -94,6 +127,13 @@ body {
 @keyframes pulse {
     0%, 100% { opacity: 0.6; }
     50% { opacity: 1; }
+}
+
+@keyframes rotateHint {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-90deg); }
+    50% { transform: rotate(-90deg); }
+    75% { transform: rotate(0deg); }
 }
 
 @keyframes sparkleFloat {

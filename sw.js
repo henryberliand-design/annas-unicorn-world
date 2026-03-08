@@ -1,5 +1,5 @@
 // Service Worker for Anna's Unicorn World — offline play support
-const CACHE_NAME = 'unicorn-world-v2';
+const CACHE_NAME = 'unicorn-world-v3';
 
 // Derive base path from service worker location (works on both localhost and GitHub Pages)
 const BASE = self.location.pathname.replace(/sw\.js$/, '');
