@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Anna's Unicorn World</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#f8c8dc">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+
+    <!-- Start Screen -->
+    <div id="start-screen">
+        <div class="sparkles-bg" id="sparkles-bg"></div>
+        <h1>Anna's Unicorn World</h1>
+        <div class="tap-hint">Tap anywhere to start!</div>
+    </div>
+
+    <!-- Game Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <script type="module">
+        import { Game } from './js/engine/game.js';
+
+        // ─── Decorative sparkle particles on start screen ───
+        const sparklesContainer = document.getElementById('sparkles-bg');
+        for (let i = 0; i < 20; i++) {
+            const sparkle = document.createElement('div');
+            sparkle.className = 'start-sparkle';
+            const size = 4 + Math.random() * 12;
+            sparkle.style.width = size + 'px';
+            sparkle.style.height = size + 'px';
+            sparkle.style.left = (Math.random() * 100) + '%';
+            sparkle.style.top = (Math.random() * 100) + '%';
+            sparkle.style.animationDuration = (2 + Math.random() * 4) + 's';
+            sparkle.style.animationDelay = (Math.random() * 3) + 's';
+            sparklesContainer.appendChild(sparkle);
+        }
+
+        // ─── Start on tap ───
+        const startScreen = document.getElementById('start-screen');
+        const canvas = document.getElementById('game-canvas');
+        let gameStarted = false;
+
+        startScreen.addEventListener('click', startGame);
+        startScreen.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            startGame();
+        }, { passive: false });
+
+        async function startGame() {
+            if (gameStarted) return;
+            gameStarted = true;
+
+            try {
+                await document.documentElement.requestFullscreen();
+            } catch (e) { /* fullscreen not supported — fine */ }
+
+            startScreen.classList.add('hidden');
+            const game = new Game(canvas);
+            game.start();
+            window.game = game;
+        }
+    </script>
+
+</body>
+</html>
