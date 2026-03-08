@@ -73,8 +73,9 @@ html, body {
     display: block;
     width: 100vw;
     height: 100vh;
-    object-fit: contain;
+    height: 100dvh; /* dynamic viewport height — avoids mobile browser toolbar */
     background: #1a0a2e;
+    touch-action: none; /* prevent browser gestures interfering with game */
 }
 
 /* ─── Animations ─── */

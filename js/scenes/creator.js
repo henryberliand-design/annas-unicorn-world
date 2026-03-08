@@ -1,6 +1,6 @@
 /**
  * creator.js — Unicorn character creator scene
- * Carousel UI with category tabs, live preview, name selection, reveal
+ * Carousel UI with category arrows, live preview, name selection, reveal
  */
 
 import { UnicornRenderer } from '../characters/unicorn.js';
@@ -15,12 +15,8 @@ export class CreatorScene {
         // Current tab
         this.tabIndex = 0;
 
-        // Current selection per category
-        this.selections = { ...game.save.state.unicorn };
-
-        // Carousel scroll index per category
-        this.carouselIndex = {};
-        CATEGORIES.forEach(c => { this.carouselIndex[c.id] = 0; });
+        // Current selection per category — store IDs not hex values
+        this.selections = this._loadSelectionsAsIds();
 
         // Name selection
         this.nameIndex = 0;
@@ -30,11 +26,22 @@ export class CreatorScene {
         this.revealTimer = 0;
 
         // UI layout (computed in init)
-        this.tabButtons = [];
-        this.arrowLeft = null;
-        this.arrowRight = null;
+        this.prevCatButton = null;
+        this.nextCatButton = null;
         this.doneButton = null;
         this.optionButtons = [];
+    }
+
+    /** Convert saved hex values back to option IDs for display matching */
+    _loadSelectionsAsIds() {
+        const saved = { ...this.game.save.state.unicorn };
+        // bodyColor is stored as hex — find matching ID
+        const bodyMatch = BODY_COLORS.find(b => b.hex === saved.bodyColor);
+        if (bodyMatch) saved.bodyColor = bodyMatch.id;
+        // maneColor is stored as hex — find matching ID
+        const maneMatch = MANE_COLORS.find(m => m.hex === saved.maneColor);
+        if (maneMatch) saved.maneColor = maneMatch.id;
+        return saved;
     }
 
     init() {
@@ -46,30 +53,13 @@ export class CreatorScene {
         const W = this.game.W;
         const H = this.game.H;
 
-        // Tab buttons along the bottom
-        const tabW = 90;
-        const tabH = 80;
-        const tabY = H - tabH - 15;
-        const totalTabW = CATEGORIES.length * (tabW + 10);
-        const tabStartX = (W - totalTabW) / 2;
+        // Category prev/next arrows (large, prominent)
+        this.prevCatButton = { x: W * 0.52, y: 70, w: 90, h: 90, icon: '◀' };
+        this.nextCatButton = { x: W - 130, y: 70, w: 90, h: 90, icon: '▶' };
 
-        this.tabButtons = CATEGORIES.map((cat, i) => ({
-            x: tabStartX + i * (tabW + 10),
-            y: tabY,
-            w: tabW,
-            h: tabH,
-            icon: cat.icon,
-            id: cat.id,
-            name: cat.name
-        }));
-
-        // Arrows for carousel
-        this.arrowLeft = { x: W / 2 + 150, y: H / 2 - 40, w: 80, h: 80, icon: '◀' };
-        this.arrowRight = { x: W - 120, y: H / 2 - 40, w: 80, h: 80, icon: '▶' };
-
-        // Done button
+        // Done button (large, centered at bottom right)
         this.doneButton = {
-            x: W / 2 + 200, y: H - 180, w: 200, h: 70,
+            x: W * 0.58, y: H - 160, w: 300, h: 100,
             icon: '✨', color: '#a855f7', colorDark: '#7c3aed'
         };
     }
@@ -110,56 +100,49 @@ export class CreatorScene {
         const W = this.game.W;
         const H = this.game.H;
         const R = this.game.renderer;
+        const cat = CATEGORIES[this.tabIndex];
 
         // Title
         ctx.font = 'bold 36px -apple-system, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#7c3aed';
-        ctx.fillText('Create Your Unicorn!', W / 2, 50);
+        ctx.fillText('Create Your Unicorn!', W * 0.25, 50);
 
-        // Unicorn preview (left half)
+        // Unicorn preview (left 45%)
         const config = this._buildConfig();
-        this.unicorn.draw(ctx, W * 0.3, H * 0.55, config, 2.5, 1, time, false);
+        this.unicorn.draw(ctx, W * 0.25, H * 0.55, config, 2.5, 1, time, false);
 
-        // Category tabs
-        this.tabButtons.forEach((btn, i) => {
-            const active = i === this.tabIndex;
-            ctx.fillStyle = active ? 'rgba(168, 85, 247, 0.9)' : 'rgba(255, 255, 255, 0.7)';
-            R.roundRect(ctx, btn.x, btn.y, btn.w, btn.h, 15);
-            ctx.fill();
-            if (active) {
-                ctx.strokeStyle = '#fbbf24';
-                ctx.lineWidth = 3;
-                R.roundRect(ctx, btn.x, btn.y, btn.w, btn.h, 15);
-                ctx.stroke();
-            }
-            // Icon
-            ctx.font = '28px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillStyle = active ? '#fff' : '#333';
-            ctx.fillText(btn.icon, btn.x + btn.w / 2, btn.y + btn.h / 2);
-        });
+        // ─── Category header with arrows ───
+        // Category name (centered in right panel)
+        const catCenterX = W * 0.73;
+        ctx.font = 'bold 34px -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#7c3aed';
+        ctx.fillText(cat.icon + ' ' + cat.name, catCenterX, 120);
 
-        // Options carousel (right half)
-        const cat = CATEGORIES[this.tabIndex];
+        // Category counter
+        ctx.font = '20px sans-serif';
+        ctx.fillStyle = '#a855f7';
+        ctx.fillText(`${this.tabIndex + 1} / ${CATEGORIES.length}`, catCenterX, 155);
+
+        // Prev arrow (left of category name)
+        this._drawArrowButton(ctx, this.prevCatButton, time, this.tabIndex > 0);
+
+        // Next arrow (right of category name)
+        this._drawArrowButton(ctx, this.nextCatButton, time, this.tabIndex < CATEGORIES.length - 1);
+
+        // ─── Options grid ───
         const options = this._getCurrentOptions();
         const selectedId = this.selections[cat.id];
 
-        // Category name
-        ctx.font = 'bold 26px -apple-system, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#7c3aed';
-        ctx.fillText(cat.name, W * 0.72, H * 0.18);
-
-        // Options grid
         this.optionButtons = [];
         const cols = 3;
-        const optW = 100;
-        const optH = 80;
+        const optW = 130;
+        const optH = 100;
         const gap = 15;
-        const gridX = W * 0.72 - (cols * (optW + gap)) / 2;
-        const gridY = H * 0.25;
+        const gridTotalW = cols * (optW + gap) - gap;
+        const gridX = catCenterX - gridTotalW / 2;
+        const gridY = 185;
 
         options.forEach((opt, i) => {
             const col = i % cols;
@@ -184,7 +167,7 @@ export class CreatorScene {
 
             if (selected) {
                 ctx.strokeStyle = '#fbbf24';
-                ctx.lineWidth = 3;
+                ctx.lineWidth = 4;
                 R.roundRect(ctx, ox, oy, optW, optH, 12);
                 ctx.stroke();
             }
@@ -192,8 +175,7 @@ export class CreatorScene {
             // Color swatch or name
             if (cat.id === 'bodyColor' || cat.id === 'maneColor') {
                 if (opt.hex === 'rainbow') {
-                    // Rainbow swatch
-                    const rg = ctx.createLinearGradient(ox + 15, oy + 15, ox + optW - 15, oy + optH - 15);
+                    const rg = ctx.createLinearGradient(ox + 10, oy + 10, ox + optW - 10, oy + optH - 30);
                     rg.addColorStop(0, '#ff0000');
                     rg.addColorStop(0.33, '#ffff00');
                     rg.addColorStop(0.66, '#00ff00');
@@ -202,16 +184,16 @@ export class CreatorScene {
                 } else {
                     ctx.fillStyle = opt.hex;
                 }
-                R.roundRect(ctx, ox + 15, oy + 10, optW - 30, optH - 35, 8);
+                R.roundRect(ctx, ox + 10, oy + 8, optW - 20, optH - 35, 8);
                 ctx.fill();
                 // Name
-                ctx.font = '12px sans-serif';
+                ctx.font = '14px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillStyle = selected ? '#fff' : '#555';
                 ctx.fillText(opt.name, ox + optW / 2, oy + optH - 8);
             } else {
                 // Text label
-                ctx.font = '14px sans-serif';
+                ctx.font = 'bold 16px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillStyle = opt.locked ? '#999' : (selected ? '#fff' : '#555');
@@ -220,18 +202,41 @@ export class CreatorScene {
 
             // Lock icon
             if (opt.locked) {
-                ctx.font = '24px sans-serif';
+                ctx.font = '28px sans-serif';
+                ctx.textBaseline = 'middle';
                 ctx.fillText('🔒', ox + optW / 2, oy + optH / 2 - 10);
             }
         });
 
-        // Done button
+        // ─── Done button ───
         R.drawButton(ctx, this.doneButton, time);
-        ctx.font = 'bold 24px sans-serif';
+        ctx.font = 'bold 32px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#fff';
-        ctx.fillText('Done! ✨', this.doneButton.x + this.doneButton.w / 2, this.doneButton.y + this.doneButton.h / 2);
+        ctx.fillText("I'm Done! ✨", this.doneButton.x + this.doneButton.w / 2, this.doneButton.y + this.doneButton.h / 2);
+    }
+
+    _drawArrowButton(ctx, btn, time, enabled) {
+        const R = this.game.renderer;
+        ctx.save();
+        if (!enabled) ctx.globalAlpha = 0.3;
+        ctx.fillStyle = enabled ? 'rgba(168, 85, 247, 0.85)' : 'rgba(150,150,150,0.4)';
+        R.roundRect(ctx, btn.x, btn.y, btn.w, btn.h, btn.h / 2);
+        ctx.fill();
+        // Glow border
+        if (enabled) {
+            ctx.strokeStyle = `rgba(255, 255, 255, ${0.3 + Math.sin(time * 3) * 0.1})`;
+            ctx.lineWidth = 3;
+            R.roundRect(ctx, btn.x, btn.y, btn.w, btn.h, btn.h / 2);
+            ctx.stroke();
+        }
+        ctx.font = 'bold 36px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(btn.icon, btn.x + btn.w / 2, btn.y + btn.h / 2);
+        ctx.restore();
     }
 
     _renderNamePicker(ctx, time) {
@@ -240,7 +245,7 @@ export class CreatorScene {
         const R = this.game.renderer;
 
         // Title
-        ctx.font = 'bold 40px -apple-system, sans-serif';
+        ctx.font = 'bold 44px -apple-system, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#7c3aed';
         ctx.fillText('Name Your Unicorn!', W / 2, 80);
@@ -254,33 +259,42 @@ export class CreatorScene {
         const name = UNICORN_NAMES[this.nameIndex];
 
         // Left arrow
-        ctx.font = 'bold 60px sans-serif';
+        this._nameLeftBtn = { x: W / 2 - 300, y: nameY - 40, w: 80, h: 80 };
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.85)';
+        R.roundRect(ctx, this._nameLeftBtn.x, this._nameLeftBtn.y, this._nameLeftBtn.w, this._nameLeftBtn.h, 40);
+        ctx.fill();
+        ctx.font = 'bold 40px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#a855f7';
-        ctx.fillText('◀', W / 2 - 250, nameY + 10);
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff';
+        ctx.fillText('◀', this._nameLeftBtn.x + 40, this._nameLeftBtn.y + 40);
 
         // Name display
-        ctx.font = 'bold 52px -apple-system, sans-serif';
+        ctx.font = 'bold 56px -apple-system, sans-serif';
         ctx.fillStyle = '#7c3aed';
-        ctx.fillText(name, W / 2, nameY + 15);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(name, W / 2, nameY);
 
         // Right arrow
-        ctx.fillStyle = '#a855f7';
-        ctx.font = 'bold 60px sans-serif';
-        ctx.fillText('▶', W / 2 + 250, nameY + 10);
+        this._nameRightBtn = { x: W / 2 + 220, y: nameY - 40, w: 80, h: 80 };
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.85)';
+        R.roundRect(ctx, this._nameRightBtn.x, this._nameRightBtn.y, this._nameRightBtn.w, this._nameRightBtn.h, 40);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.fillText('▶', this._nameRightBtn.x + 40, this._nameRightBtn.y + 40);
 
         // Confirm button
         const confirmBtn = {
-            x: W / 2 - 120, y: H - 130, w: 240, h: 70,
+            x: W / 2 - 160, y: H - 150, w: 320, h: 90,
             color: '#a855f7', colorDark: '#7c3aed'
         };
         this._confirmButton = confirmBtn;
         R.drawButton(ctx, confirmBtn, time);
-        ctx.font = 'bold 26px sans-serif';
+        ctx.font = 'bold 30px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#fff';
-        ctx.fillText(`I'm ${name}!`, confirmBtn.x + confirmBtn.w / 2, confirmBtn.y + confirmBtn.h / 2);
+        ctx.fillText(`I'm ${name}! 💜`, confirmBtn.x + confirmBtn.w / 2, confirmBtn.y + confirmBtn.h / 2);
     }
 
     _renderReveal(ctx, time) {
@@ -306,7 +320,6 @@ export class CreatorScene {
             ctx.fillStyle = '#7c3aed';
             ctx.fillText(this.selectedName, W / 2, 100);
 
-            // Subtitle
             ctx.font = '28px sans-serif';
             ctx.fillStyle = '#a855f7';
             ctx.fillText('is ready for adventure!', W / 2, 150);
@@ -326,12 +339,12 @@ export class CreatorScene {
         // "Let's Go!" button after 2 seconds
         if (t > 2) {
             const goBtn = {
-                x: W / 2 - 120, y: H - 140, w: 240, h: 80,
+                x: W / 2 - 160, y: H - 150, w: 320, h: 100,
                 color: '#a855f7', colorDark: '#7c3aed'
             };
             this._goButton = goBtn;
             this.game.renderer.drawButton(ctx, goBtn, time);
-            ctx.font = 'bold 30px sans-serif';
+            ctx.font = 'bold 36px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillStyle = '#fff';
@@ -361,28 +374,25 @@ export class CreatorScene {
         const R = this.game.renderer;
 
         if (this.phase === 'create') {
-            // Tab buttons
-            for (let i = 0; i < this.tabButtons.length; i++) {
-                if (R.hitTest(x, y, this.tabButtons[i])) {
-                    this.tabIndex = i;
-                    this.game.audio.playSparkle();
-                    return;
-                }
+            // Prev category arrow
+            if (R.hitTest(x, y, this.prevCatButton) && this.tabIndex > 0) {
+                this.tabIndex--;
+                this.game.audio.playSparkle();
+                return;
+            }
+
+            // Next category arrow
+            if (R.hitTest(x, y, this.nextCatButton) && this.tabIndex < CATEGORIES.length - 1) {
+                this.tabIndex++;
+                this.game.audio.playSparkle();
+                return;
             }
 
             // Option buttons
             for (const btn of this.optionButtons) {
                 if (R.hitTest(x, y, btn) && !btn.locked) {
                     const cat = CATEGORIES[this.tabIndex];
-                    if (cat.id === 'bodyColor') {
-                        const opt = BODY_COLORS.find(b => b.id === btn.id);
-                        this.selections.bodyColor = opt?.hex || btn.id;
-                    } else if (cat.id === 'maneColor') {
-                        const opt = MANE_COLORS.find(m => m.id === btn.id);
-                        this.selections.maneColor = opt?.hex || btn.id;
-                    } else {
-                        this.selections[cat.id] = btn.id;
-                    }
+                    this.selections[cat.id] = btn.id;
                     this.game.audio.playSparkle();
                     return;
                 }
@@ -396,18 +406,14 @@ export class CreatorScene {
                 return;
             }
         } else if (this.phase === 'name') {
-            const W = this.game.W;
-            const H = this.game.H;
-            const nameY = H * 0.75;
-
             // Left arrow
-            if (x < W / 2 - 150 && y > nameY - 50 && y < nameY + 50) {
+            if (this._nameLeftBtn && R.hitTest(x, y, this._nameLeftBtn)) {
                 this.nameIndex = (this.nameIndex - 1 + UNICORN_NAMES.length) % UNICORN_NAMES.length;
                 this.game.audio.playTap();
                 return;
             }
             // Right arrow
-            if (x > W / 2 + 150 && y > nameY - 50 && y < nameY + 50) {
+            if (this._nameRightBtn && R.hitTest(x, y, this._nameRightBtn)) {
                 this.nameIndex = (this.nameIndex + 1) % UNICORN_NAMES.length;
                 this.game.audio.playTap();
                 return;
@@ -421,11 +427,13 @@ export class CreatorScene {
                 this.game.particles.addConfetti(this.game.W / 2, this.game.H / 2, 40);
                 this.game.audio.speak(`Meet ${this.selectedName}! Your magical unicorn!`);
 
-                // Save unicorn
-                this.game.save.updateUnicorn({
-                    ...this.selections,
-                    name: this.selectedName
-                });
+                // Save unicorn — convert IDs back to hex for storage
+                const saveData = { ...this.selections, name: this.selectedName };
+                const bodyMatch = BODY_COLORS.find(b => b.id === saveData.bodyColor);
+                if (bodyMatch) saveData.bodyColor = bodyMatch.hex;
+                const maneMatch = MANE_COLORS.find(m => m.id === saveData.maneColor);
+                if (maneMatch) saveData.maneColor = maneMatch.hex;
+                this.game.save.updateUnicorn(saveData);
                 return;
             }
         } else if (this.phase === 'reveal') {
@@ -442,9 +450,12 @@ export class CreatorScene {
     }
 
     _buildConfig() {
+        // Convert option IDs to values the renderer expects
+        const bodyMatch = BODY_COLORS.find(b => b.id === this.selections.bodyColor);
+        const maneMatch = MANE_COLORS.find(m => m.id === this.selections.maneColor);
         return {
-            bodyColor: this.selections.bodyColor || '#ffb6c1',
-            maneColor: this.selections.maneColor || '#ff69b4',
+            bodyColor: bodyMatch?.hex || this.selections.bodyColor || '#ffb6c1',
+            maneColor: maneMatch?.hex || this.selections.maneColor || '#ff69b4',
             maneStyle: this.selections.maneStyle || 'flowing',
             horn: this.selections.horn || 'classic',
             wings: this.selections.wings || 'none',

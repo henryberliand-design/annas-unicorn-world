@@ -81,9 +81,10 @@ export class InputManager {
                 this._emit('tap', this._dragStart.x, this._dragStart.y);
             }
         }
+        const endPos = this._dragStart || { x: 0, y: 0 };
         this._dragStart = null;
         this._dragging = false;
-        this._emit('pointerup', this._dragStart?.x || 0, this._dragStart?.y || 0);
+        this._emit('pointerup', endPos.x, endPos.y);
     }
 
     // ─── Mouse ───────────────────────────────────────────────

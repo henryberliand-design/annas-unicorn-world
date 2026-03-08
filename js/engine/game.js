@@ -311,11 +311,6 @@ export class Game {
         this.running = true;
         this.lastFrame = performance.now();
 
-        // Register service worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').catch(() => {});
-        }
-
         // Start with creator if no unicorn exists, otherwise hub
         if (!this.save.state.unicorn.name) {
             this.scenes.setScene(new CreatorScene(this));
